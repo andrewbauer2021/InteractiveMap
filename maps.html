@@ -12,7 +12,7 @@ body { margin: 0; padding: 0; }
 
 /* Navbar styles */
 .navbar {
-  background-color: #333;
+  background-color: white;
   overflow: hidden;
   position: absolute;
   top: 0;
@@ -23,37 +23,199 @@ body { margin: 0; padding: 0; }
 .navbar a {
   float: left;
   display: block;
-  color: #f2f2f2;
+  color: black;
   text-align: center;
-  padding: 14px 20px;
+  padding: 8px 20px;
   text-decoration: none;
 }
 
 .navbar a:hover {
-  background-color: #ddd;
+  background-color: grey;
   color: black;
 }
+
+.legend {
+        background-color: #fff;
+        border-radius: 3px;
+        bottom: 30px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        font:
+            12px/20px 'Helvetica Neue',
+            Arial,
+            Helvetica,
+            sans-serif;
+        padding: 10px;
+        position: absolute;
+        right: 10px;
+        z-index: 1;
+    }
+
+    .legend h4 {
+        margin: 0 0 10px;
+    }
+
+    .legend div span {
+        border-radius: 50%;
+        display: inline-block;
+        height: 10px;
+        margin-right: 5px;
+        width: 10px;
+    }
 </style>
 </head>
-<body>
+  <body>
 
-<!-- Navbar -->
-<div class="navbar">
-  <a href="homepage.html">Home</a>
+  <!-- Navbar -->
+  <div class="navbar">
+    <a href="homepage.html">Home</a>
+    <a href="about.html">About</a>
+  </div>
+
+  <!-- Map Container -->
+  <div id="map"></div>
+
+<!--display a legend box-->
+  <div id="state-legend" class="legend">
+    <h4>Population</h4>
+    <div><span style="background-color: #723122"></span>25,000,000</div>
+    <div><span style="background-color: #8b4225"></span>10,000,000</div>
+    <div><span style="background-color: #a25626"></span>7,500,000</div>
+    <div><span style="background-color: #b86b25"></span>5,000,000</div>
+    <div><span style="background-color: #ca8323"></span>2,500,000</div>
+    <div><span style="background-color: #da9c20"></span>1,000,000</div>
+    <div><span style="background-color: #e6b71e"></span>750,000</div>
+    <div><span style="background-color: #eed322"></span>500,000</div>
+    <div><span style="background-color: #f2f12d"></span>0</div>
+  </div>
+
+  <div id="county-legend" class="legend" style="display: none">
+    <h4>Population</h4>
+    <div><span style="background-color: #723122"></span>1,000,000</div>
+    <div><span style="background-color: #8b4225"></span>500,000</div>
+    <div><span style="background-color: #a25626"></span>100,000</div>
+    <div><span style="background-color: #b86b25"></span>50,000</div>
+    <div><span style="background-color: #ca8323"></span>10,000</div>
+    <div><span style="background-color: #da9c20"></span>5,000</div>
+    <div><span style="background-color: #e6b71e"></span>1,000</div>
+    <div><span style="background-color: #eed322"></span>100</div>
+    <div><span style="background-color: #f2f12d"></span>0</div>
 </div>
 
-<!-- Map Container -->
-<div id="map"></div>
+  <!-- Map Script -->
+  <script>
+    // necessary to run mapbox
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmV3MjAyNCIsImEiOiJjbHRqZWplM2gwcGtqMmlyaGxwM3VrMHB4In0.vTZ3sbLHtpYFaU2Px_rfvQ';
+      const map = new mapboxgl.Map({
+          container: 'map',
+          // Style the map using a preexisting style and set the zoom distance
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: [-98, 38.88],
+          minZoom: 2,
+          zoom: 3
+      });
+  
+      const zoomThreshold = 4;
+  
+      map.on('load', () => { // ensure loading is the first event
+          map.addSource('population', {
+              'type': 'vector',
+              'url': 'mapbox://mapbox.660ui7x6'
+          });
+  
+          map.addLayer(
+              {
+                  'id': 'state-population',
+                  'source': 'population',
+                  'source-layer': 'state_county_population_2014_cen',
+                  'maxzoom': zoomThreshold,
+                  'type': 'fill',
+                  // only include features for which the "isState"
+                  // property is "true"
+                  'filter': ['==', 'isState', true],
+                  'paint': {
+                      'fill-color': [
+                          'interpolate',
+                          ['linear'],
+                          ['get', 'population'],
+                          0,
+                          '#F2F12D',
+                          500000,
+                          '#EED322',
+                          750000,
+                          '#E6B71E',
+                          1000000,
+                          '#DA9C20',
+                          2500000,
+                          '#CA8323',
+                          5000000,
+                          '#B86B25',
+                          7500000,
+                          '#A25626',
+                          10000000,
+                          '#8B4225',
+                          25000000,
+                          '#723122'
+                      ],
+                      'fill-opacity': 0.75
+                  }
+              },
+              'road-label-simple' // Add layer below labels
+          );
+  
+          map.addLayer(
+              {
+                  'id': 'county-population',
+                  'source': 'population',
+                  'source-layer': 'state_county_population_2014_cen',
+                  'minzoom': zoomThreshold,
+                  'type': 'fill',
+                  // only include features for which the "isCounty"
+                  // property is "true"
+                  'filter': ['==', 'isCounty', true],
+                  'paint': {
+                      'fill-color': [
+                          'interpolate',
+                          ['linear'],
+                          ['get', 'population'],
+                          0,
+                          '#F2F12D',
+                          100,
+                          '#EED322',
+                          1000,
+                          '#E6B71E',
+                          5000,
+                          '#DA9C20',
+                          10000,
+                          '#CA8323',
+                          50000,
+                          '#B86B25',
+                          100000,
+                          '#A25626',
+                          500000,
+                          '#8B4225',
+                          1000000,
+                          '#723122'
+                      ],
+                      'fill-opacity': 0.8
+                  }
+              },
+              'road-label-simple' // Add layer below labels
+          );
+      });
+  
+      const stateLegendEl = document.getElementById('state-legend');
+      const countyLegendEl = document.getElementById('county-legend');
+      // necessary for adjusting population values based on zoom distance
+      map.on('zoom', () => {
+          if (map.getZoom() > zoomThreshold) {
+              stateLegendEl.style.display = 'none';
+              countyLegendEl.style.display = 'block';
+          } else {
+              stateLegendEl.style.display = 'block';
+              countyLegendEl.style.display = 'none';
+          }
+      });
+  </script>
 
-<!-- Map Script -->
-<script>
-	mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmV3MjAyNCIsImEiOiJjbHRqZWplM2gwcGtqMmlyaGxwM3VrMHB4In0.vTZ3sbLHtpYFaU2Px_rfvQ';
-    const map = new mapboxgl.Map({
-        container: 'map', // container ID
-        center: [-74.5, 40], // starting position [lng, lat]
-        zoom: 9 // starting zoom
-    });
-</script>
-
-</body>
+  </body>
 </html>
