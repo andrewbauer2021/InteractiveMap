@@ -6,6 +6,31 @@
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+
+<script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-analytics.js";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+  
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyBOETu1FxN07p6jNXBO1oc-maGtSU_w8j0",
+      authDomain: "interactivepopulation.firebaseapp.com",
+      databaseURL: "https://interactivepopulation-default-rtdb.firebaseio.com",
+      projectId: "interactivepopulation",
+      storageBucket: "interactivepopulation.appspot.com",
+      messagingSenderId: "481557346607",
+      appId: "1:481557346607:web:b856db172e0e631a8e49da",
+      measurementId: "G-8XGDLN4PMM"
+    };
+  
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+</script>
 <style>
 body { margin: 0; padding: 0; }
 #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 0; }
@@ -75,7 +100,7 @@ body { margin: 0; padding: 0; }
   <div id="map"></div>
 
 <!--display a legend box-->
-  <div id="state-legend" class="legend">
+  <!-- <div id="state-legend" class="legend">
     <h4>Population</h4>
     <div><span style="background-color: #723122"></span>25,000,000</div>
     <div><span style="background-color: #8b4225"></span>10,000,000</div>
@@ -99,7 +124,7 @@ body { margin: 0; padding: 0; }
     <div><span style="background-color: #e6b71e"></span>1,000</div>
     <div><span style="background-color: #eed322"></span>100</div>
     <div><span style="background-color: #f2f12d"></span>0</div>
-</div>
+</div> -->
 
   <!-- Map Script -->
   <script>
@@ -113,109 +138,63 @@ body { margin: 0; padding: 0; }
           minZoom: 2,
           zoom: 3
       });
-  
-      const zoomThreshold = 4;
-  
-      map.on('load', () => { // ensure loading is the first event
-          map.addSource('population', {
-              'type': 'vector',
-              'url': 'mapbox://mapbox.660ui7x6'
-          });
-  
-          map.addLayer(
-              {
-                  'id': 'state-population',
-                  'source': 'population',
-                  'source-layer': 'state_county_population_2014_cen',
-                  'maxzoom': zoomThreshold,
-                  'type': 'fill',
-                  // only include features for which the "isState"
-                  // property is "true"
-                  'filter': ['==', 'isState', true],
-                  'paint': {
-                      'fill-color': [
-                          'interpolate',
-                          ['linear'],
-                          ['get', 'population'],
-                          0,
-                          '#F2F12D',
-                          500000,
-                          '#EED322',
-                          750000,
-                          '#E6B71E',
-                          1000000,
-                          '#DA9C20',
-                          2500000,
-                          '#CA8323',
-                          5000000,
-                          '#B86B25',
-                          7500000,
-                          '#A25626',
-                          10000000,
-                          '#8B4225',
-                          25000000,
-                          '#723122'
-                      ],
-                      'fill-opacity': 0.75
-                  }
-              },
-              'road-label-simple' // Add layer below labels
-          );
-  
-          map.addLayer(
-              {
-                  'id': 'county-population',
-                  'source': 'population',
-                  'source-layer': 'state_county_population_2014_cen',
-                  'minzoom': zoomThreshold,
-                  'type': 'fill',
-                  // only include features for which the "isCounty"
-                  // property is "true"
-                  'filter': ['==', 'isCounty', true],
-                  'paint': {
-                      'fill-color': [
-                          'interpolate',
-                          ['linear'],
-                          ['get', 'population'],
-                          0,
-                          '#F2F12D',
-                          100,
-                          '#EED322',
-                          1000,
-                          '#E6B71E',
-                          5000,
-                          '#DA9C20',
-                          10000,
-                          '#CA8323',
-                          50000,
-                          '#B86B25',
-                          100000,
-                          '#A25626',
-                          500000,
-                          '#8B4225',
-                          1000000,
-                          '#723122'
-                      ],
-                      'fill-opacity': 0.8
-                  }
-              },
-              'road-label-simple' // Add layer below labels
-          );
-      });
-  
-      const stateLegendEl = document.getElementById('state-legend');
-      const countyLegendEl = document.getElementById('county-legend');
-      // necessary for adjusting population values based on zoom distance
-      map.on('zoom', () => {
-          if (map.getZoom() > zoomThreshold) {
-              stateLegendEl.style.display = 'none';
-              countyLegendEl.style.display = 'block';
-          } else {
-              stateLegendEl.style.display = 'block';
-              countyLegendEl.style.display = 'none';
-          }
-      });
+
+      map.on('load', () => {
+        map.addSource('uscities', {
+            type: 'geojson',
+            // Use a URL for the value for the `data` property.
+            data: 'uscities.geojson'
+        });
+
+        map.addLayer({
+            'id': 'uscities-layer',
+            'type': 'circle',
+            'source': 'uscities',
+            'paint': {
+                'circle-radius': 4,
+                'circle-stroke-width': 2,
+                'circle-color': 'red',
+                'circle-stroke-color': 'white'
+            }
+        });
+
+        map.getCanvas().style.cursor = 'default';
+        // ensures the map loads with the US centered
+        map.fitBounds([
+          [-133.2421875, 16.972741],
+          [-47.63671875, 52.696361]
+        ]);
+
+        // Add a mousemove event listener to the map
+        map.on('mousemove', (e) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['uscities-layer'] });
+
+            // Change the cursor style based on whether features are found
+            map.getCanvas().style.cursor = features.length ? 'pointer' : '';
+
+            if (!features.length) {
+                // If no feature found, remove popup
+                popup.remove();
+                return;
+            }
+
+            const feature = features[0];
+            const coordinates = feature.geometry.coordinates.slice();
+            const population = feature.properties.population;
+
+            // Populate the popup and set its coordinates based on the feature.
+            popup.setLngLat(coordinates)
+                .setHTML(`Population: ${population}`)
+                .addTo(map);
+        });
+
+        // Initialize a popup object
+        const popup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false
+        });
+    });
   </script>
 
-  </body>
+</body>
 </html>
