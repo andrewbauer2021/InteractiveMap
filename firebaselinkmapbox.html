@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet">
+    <!-- Add Firebase SDK scripts here -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-database.js"></script>
+    <!-- <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase.js"></script> -->
+    <!-- <script src="https://www.gstatic.com/firebasejs/firebase/init.js"></script> -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js"></script>
+    
+    <!-- End of Firebase SDK scripts -->
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #popup { position: absolute; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; pointer-events: none; display: none; }
+        /* Style for the overlay */
+        #overlay { position: absolute; top: 10px; right: 10px; background-color: rgba(255, 255, 255, 0.8); padding: 10px 10px; border-radius: 5px; z-index: 1; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="popup"></div>
+    <!-- Overlay -->
+    <div id="overlay">Hover over a point to see the city and population.</div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+        import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.11.1/firebase-database.js';
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmV3MjAyNCIsImEiOiJjbHRqZWplM2gwcGtqMmlyaGxwM3VrMHB4In0.vTZ3sbLHtpYFaU2Px_rfvQ';
+
+        var map = new mapboxgl.Map({
+            container: 'map', // container id
+            style: 'mapbox://styles/mapbox/dark-v9', // stylesheet location
+            center: [-98, 38.88], // starting position
+            zoom: 4 // starting zoom
+        });
+
+        // Add firebase config values
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOETu1FxN07p6jNXBO1oc-maGtSU_w8j0",
+            authDomain: "interactivepopulation.firebaseapp.com",
+            databaseURL: "https://interactivepopulation-default-rtdb.firebaseio.com",
+            projectId: "interactivepopulation",
+            storageBucket: "interactivepopulation.appspot.com",
+            messagingSenderId: "481557346607",
+            appId: "1:481557346607:web:b856db172e0e631a8e49da",
+            measurementId: "G-8XGDLN4PMM"
+        };
+        // Initialize Firebase with config values
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        // Get a reference to the database location
+        const dbRef = ref(database, 'Sheet1/');
+
+        //fetch the reference and loop through the data to store it if it exists.
+        get(dbRef).then((snapshot) => {
+        if (snapshot.exists()) 
+        {
+            const data = snapshot.val();
+            addPointsToMap(data);
+            // console.log(data);
+        } else 
+        {
+            console.log("error fetching data");
+        }
+        });
+        // Function to add points to the map using the stored data.
+        function addPointsToMap(data) {
+            var firebaseGeojsonFeatures = Object.keys(data).map(function(key) {
+            var location = data[key];
+            return {
+                type: "Feature",
+                geometry: {
+                    type: "Point",
+                    coordinates: [location.lon, location.lat]
+                },
+                properties: {
+                    City: location.City,
+                    State: location.State,
+                    Population: location.Population
+                }
+            };
+        });
+        
+        map.on('load', function() {
+            map.addSource('firebase', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: firebaseGeojsonFeatures
+                }
+            });
+
+            map.addLayer({
+                id: 'firebase',
+                source: 'firebase',
+                type: 'circle',
+                paint: {
+                    'circle-color': 'yellow',
+                    'circle-radius': 15
+                }
+            });
+
+            var popup = new mapboxgl.Popup({
+                closeButton: false,
+                closeOnClick: false
+            });
+
+            map.on('mousemove', 'firebase', function(e) {
+                var city = e.features[0].properties.City;
+                var state = e.features[0].properties.State;
+                var population = e.features[0].properties.Population;
+
+                popup.setLngLat(e.lngLat).setHTML(`<h3>${city}, ${state}</h3><p>Population: ${population}</p>`).addTo(map);
+            });
+
+            map.on('mouseleave', 'firebase', function() {
+                popup.remove();
+            });
+            // Add click event listener to map
+            map.on('click', function(e) {
+                var coordinates = e.lngLat;
+                var city = prompt("Enter city name:");
+                var state = prompt("Enter state:");
+                var population = prompt("Enter population:");
+
+                // Add data to Firebase
+                set(ref(database, 'Sheet1/' + city), {
+                    City: city,
+                    State: state,
+                    Population: population,
+                    lon: coordinates.lng,
+                    lat: coordinates.lat
+                }).then(() => {
+                    alert("Data added to Firebase");
+                }).catch((error) => {
+                    alert("Error adding data to Firebase: ", error);
+                });
+            });
+        });
+        }
+    </script>
+</body>
+</html>

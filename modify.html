@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet">
+    <!-- Add Firebase SDK scripts here -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-auth.js"></script>
+    <!-- End of Firebase SDK scripts -->
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        #popup { position: absolute; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; pointer-events: none; display: none; }
+        /* Style for the overlay */
+        #overlay { position: absolute; top: 10px; right: 10px; background-color: rgba(255, 255, 255, 0.8); padding: 10px 10px; border-radius: 5px; z-index: 1; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="popup"></div>
+    <!-- Overlay -->
+    <div id="overlay">Hover over a point to see the city and population.</div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+        import { getDatabase, ref, set, get, onValue } from 'https://www.gstatic.com/firebasejs/10.11.1/firebase-database.js';
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYW5kcmV3MjAyNCIsImEiOiJjbHRqZWplM2gwcGtqMmlyaGxwM3VrMHB4In0.vTZ3sbLHtpYFaU2Px_rfvQ';
+
+        var map = new mapboxgl.Map({
+            container: 'map', // container id
+            style: 'mapbox://styles/mapbox/dark-v9', // stylesheet location
+            center: [-98, 38.88], // starting position
+            zoom: 4 // starting zoom
+        });
+
+        // Add firebase config values
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOETu1FxN07p6jNXBO1oc-maGtSU_w8j0",
+            authDomain: "interactivepopulation.firebaseapp.com",
+            databaseURL: "https://interactivepopulation-default-rtdb.firebaseio.com",
+            projectId: "interactivepopulation",
+            storageBucket: "interactivepopulation.appspot.com",
+            messagingSenderId: "481557346607",
+            appId: "1:481557346607:web:b856db172e0e631a8e49da",
+            measurementId: "G-8XGDLN4PMM"
+        };
+        // Initialize Firebase with config values
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        // Get a reference to the database location
+        const dbRef = ref(database, 'Sheet1/');
+
+        //fetch the reference and loop through the data to store it if it exists.
+        get(dbRef).then((snapshot) => {
+        if (snapshot.exists()) 
+        {
+            const data = snapshot.val();
+            addPointsToMap(data);
+            // console.log(data);
+        } else 
+        {
+            console.log("error fetching data");
+        }
+        });
+        // Function to add points to the map using the stored data.
+        function addPointsToMap(data) {
+            var firebaseGeojsonFeatures = Object.keys(data).map(function(key) {
+            var location = data[key];
+            return {
+                type: "Feature",
+                geometry: {
+                    type: "Point",
+                    coordinates: [location.lon, location.lat]
+                },
+                properties: {
+                    id: key, // Add unique ID for each point
+                    City: location.City,
+                    State: location.State,
+                    Population: location.Population
+                }
+            };
+        });
+        
+        map.on('load', function() {
+            map.addSource('firebase', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: firebaseGeojsonFeatures
+                }
+            });
+
+            map.addLayer({
+                id: 'firebase',
+                source: 'firebase',
+                type: 'circle',
+                paint: {
+                    'circle-color': 'yellow',
+                    'circle-radius': 15
+                }
+            });
+
+            var popup = new mapboxgl.Popup({
+                closeButton: false,
+                closeOnClick: false
+            });
+
+            var isEditing = false; // Flag to track if editing popup is open
+
+            map.on('mousemove', 'firebase', function(e) {
+                var city = e.features[0].properties.City;
+                var state = e.features[0].properties.State;
+                var population = e.features[0].properties.Population;
+
+                if (!isEditing) {
+                    popup.setLngLat(e.lngLat).setHTML(`<h3>${city}, ${state}</h3><p>Population: ${population}</p>`).addTo(map);
+                }
+            });
+
+            // Add click event listener to map
+            map.on('click', function(e) {
+                var features = map.queryRenderedFeatures(e.point, { layers: ['firebase'] });
+                if (!features.length) {
+                    // If there are no existing points clicked, handle adding a new point
+                    var coordinates = e.lngLat;
+                    var city = prompt("Enter city name:");
+                    var state = prompt("Enter state:");
+                    var population = prompt("Enter population:");
+
+                    // Check if any prompt inputs are empty
+                    if (city === null || city === "" || state === null || state === "" || population === null || population === "") {
+                        alert("All fields must be filled.");
+                        return;
+                    }
+
+                    // Add data to Firebase
+                    set(ref(database, 'Sheet1/' + city), {
+                        City: city,
+                        State: state,
+                        Population: population,
+                        lon: coordinates.lng,
+                        lat: coordinates.lat
+                    }).then(() => {
+                        alert("Data added to Firebase");
+                    }).catch((error) => {
+                        alert("Error adding data to Firebase: ", error);
+                    });
+                } else {
+                    // If an existing point is clicked, handle editing existing data
+                    var feature = features[0];
+                    var coordinates = feature.geometry.coordinates.slice();
+                    var id = feature.properties.id;
+                    var city = feature.properties.City;
+                    var state = feature.properties.State;
+                    var population = feature.properties.Population;
+
+                    // Display a popup with existing values and allow editing
+                    var popupContent = `
+                        <h3>Edit Information</h3>
+                        <span id="closeBtn" style="cursor: pointer; position: absolute; top: 5px; right: 10px; font-weight: bold;">X</span>
+                        <form id="editForm">
+                            <label for="city">City:</label><br>
+                            <input type="text" id="city" name="city" value="${city}"><br>
+                            <label for="state">State:</label><br>
+                            <input type="text" id="state" name="state" value="${state}"><br>
+                            <label for="population">Population:</label><br>
+                            <input type="text" id="population" name="population" value="${population}"><br><br>
+                            <input type="submit" value="Submit">
+                        </form>
+                    `;
+                    popup.setLngLat(coordinates).setHTML(popupContent).addTo(map);
+                    isEditing = true;
+
+                    // Close button event
+                    document.getElementById('closeBtn').addEventListener('click', function() {
+                        popup.remove();
+                        isEditing = false;
+                    });
+
+                    // Submit form
+                    document.getElementById('editForm').addEventListener('submit', function(event) {
+                        event.preventDefault();
+                        var formData = new FormData(event.target);
+                        var updatedCity = formData.get('city');
+                        var updatedState = formData.get('state');
+                        var updatedPopulation = formData.get('population');
+
+                        // Update data in Firebase
+                        set(ref(database, 'Sheet1/' + id), {
+                            City: updatedCity,
+                            State: updatedState,
+                            Population: updatedPopulation,
+                            lon: coordinates[0],
+                            lat: coordinates[1]
+                        }).then(() => {
+                            alert("Data updated in Firebase");
+                            isEditing = false;
+                            popup.remove(); // Remove popup after submission
+                        }).catch((error) => {
+                            alert("Error updating data in Firebase: ", error);
+                        });
+                    });
+                }
+            });
+        });
+        }
+    </script>
+</body>
+</html>
